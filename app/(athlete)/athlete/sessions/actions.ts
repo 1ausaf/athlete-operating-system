@@ -3,11 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { requireUserWithProfile } from "@/lib/auth";
+import type { BookingErrorCode } from "@/lib/data/bookings";
+import { bookSessionForAthleteUser } from "@/lib/server/mutations";
 import {
-  type BookingErrorCode,
-  bookingInvalidRequestMessage,
-  createBookingForAthlete,
-} from "@/lib/data/bookings";
+  BOOKING_INVALID_REQUEST_CODE,
+} from "@/lib/ui/messages";
 
 export type BookingFormState =
   | { kind: "idle" }
@@ -22,34 +22,17 @@ export async function bookSession(
   formData: FormData,
 ): Promise<BookingFormState> {
   const user = await requireUserWithProfile();
-  if (user.role !== "athlete") {
-    return {
-      kind: "error",
-      code: "GENERIC_BOOKING_ERROR",
-      message: bookingInvalidRequestMessage,
-    };
-  }
-
   const sessionId = String(formData.get("sessionId") ?? "").trim();
-  if (!sessionId) {
-    return {
-      kind: "error",
-      code: "GENERIC_BOOKING_ERROR",
-      message: bookingInvalidRequestMessage,
-    };
-  }
 
-  const result = await createBookingForAthlete({
-    athleteProfileId: user.id,
-    sessionId,
-  });
+  const outcome = await bookSessionForAthleteUser(user, sessionId);
 
-  if (!result.ok) {
-    return {
-      kind: "error",
-      code: result.code,
-      message: result.message,
-    };
+  if (!outcome.ok) {
+    const code: BookingErrorCode =
+      outcome.code === BOOKING_INVALID_REQUEST_CODE ||
+      outcome.code === "FORBIDDEN"
+        ? "GENERIC_BOOKING_ERROR"
+        : outcome.code;
+    return { kind: "error", code, message: outcome.message };
   }
 
   redirect("/athlete/sessions");

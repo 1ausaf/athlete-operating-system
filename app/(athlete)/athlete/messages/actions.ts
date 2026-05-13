@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getCurrentUserWithProfile } from "@/lib/auth";
-import { sendMessage } from "@/lib/data/messaging";
+import { sendThreadMessageForUser } from "@/lib/server/mutations";
 
 export async function sendAthleteThreadMessage(formData: FormData) {
   const user = await getCurrentUserWithProfile();
@@ -23,11 +23,7 @@ export async function sendAthleteThreadMessage(formData: FormData) {
     );
   }
 
-  const res = await sendMessage({
-    threadId,
-    senderProfileId: user.id,
-    body,
-  });
+  const res = await sendThreadMessageForUser(user, threadId, body);
 
   if (!res.ok) {
     redirect(`${back}?error=${encodeURIComponent(res.message)}`);

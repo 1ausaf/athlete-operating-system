@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { MessageSendErrorCode } from "@/lib/ui/messages";
+import { messageSendErrorMessage } from "@/lib/ui/messages";
 import type { Database } from "@/types/db";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
@@ -62,21 +64,37 @@ export function messagePreviewSnippet(body: string, maxLen = 120): string {
   return `${t.slice(0, maxLen - 1)}…`;
 }
 
-function mapSendErrorMessage(raw: string): string {
+function mapSendError(raw: string): {
+  code: MessageSendErrorCode;
+  message: string;
+} {
   const lower = raw.toLowerCase();
   if (lower.includes("rule_of_two") || lower.includes("rule-of-two")) {
-    return "This thread no longer meets Safe Sport Rule-of-Two (minors need at least two adults, and one-to-one adult–minor threads are not allowed).";
+    return {
+      code: "RULE_OF_TWO_VIOLATION",
+      message: messageSendErrorMessage("RULE_OF_TWO_VIOLATION"),
+    };
   }
   if (
     lower.includes("messages_sender_not_in_thread") ||
     lower.includes("sender must be a participant")
   ) {
-    return "You are not a participant in this thread, so the message could not be sent.";
+    return {
+      code: "NOT_THREAD_PARTICIPANT",
+      message: messageSendErrorMessage("NOT_THREAD_PARTICIPANT"),
+    };
   }
   if (lower.includes("violates row-level security")) {
-    return "You do not have permission to send this message.";
+    return {
+      code: "MESSAGE_FORBIDDEN",
+      message: messageSendErrorMessage("MESSAGE_FORBIDDEN"),
+    };
   }
-  return raw || "Could not send message.";
+  const fallback = messageSendErrorMessage("MESSAGE_GENERIC");
+  return {
+    code: "MESSAGE_GENERIC",
+    message: raw?.trim() ? raw : fallback,
+  };
 }
 
 function mapCreateThreadErrorMessage(raw: string): string {
@@ -326,12 +344,27 @@ export interface SendMessageParams {
   body: string;
 }
 
+export type SendMessageResult =
+  | { ok: true }
+  | { ok: false; code: MessageSendErrorCode; message: string };
+
 export async function sendMessage(
   params: SendMessageParams,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<SendMessageResult> {
   const trimmed = params.body.trim();
   if (!trimmed) {
-    return { ok: false, message: "Message cannot be empty." };
+    return {
+      ok: false,
+      code: "MESSAGE_EMPTY",
+      message: messageSendErrorMessage("MESSAGE_EMPTY"),
+    };
+  }
+  if (trimmed.length > 10_000) {
+    return {
+      ok: false,
+      code: "MESSAGE_BODY_TOO_LONG",
+      message: messageSendErrorMessage("MESSAGE_BODY_TOO_LONG"),
+    };
   }
 
   const supabase = createSupabaseServerClient();
@@ -347,7 +380,7 @@ export async function sendMessage(
     await supabase.from("messages").insert([row]);
 
   if (error) {
-    return { ok: false, message: mapSendErrorMessage(error.message) };
+    return { ok: false, ...mapSendError(error.message ?? "") };
   }
 
   return { ok: true };

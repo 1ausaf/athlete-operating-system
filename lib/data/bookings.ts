@@ -2,10 +2,14 @@ import type { PostgrestError } from "@supabase/supabase-js";
 
 import { getAthleteIdForProfileId } from "@/lib/data/athletes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  athleteBookingUserMessages,
+  BOOKING_INVALID_REQUEST_TEXT,
+  bookingErrorMessage,
+  bookingScenarioMessages,
+} from "@/lib/ui/messages";
+import { isValidUuid } from "@/lib/validation";
 import type { Database } from "@/types/db";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type BookingResult =
   | { ok: true }
@@ -24,31 +28,17 @@ export type BookingErrorCode = Extract<
   { ok: false }
 >["code"];
 
-export const athleteBookingUserMessages: Record<BookingErrorCode, string> = {
-  BOOKING_FREQUENCY_EXCEEDED:
-    "You've reached your session limit for this period.",
-  PAYMENT_NOT_AUTHORIZED:
-    "Your payment is overdue; please resolve billing before booking new sessions.",
-  SESSION_FULL: "This session is full.",
-  GENERIC_BOOKING_ERROR:
-    "Unable to book this session right now. Please try again or contact a coach.",
-};
+export { athleteBookingUserMessages };
 
 /** Shown when booking APIs receive malformed input or a non-athlete caller. */
-export const bookingInvalidRequestMessage =
-  "Invalid request. Please refresh and try again." as const;
-const MSG_ALREADY_BOOKED =
-  "You're already booked for this session." as const;
-const MSG_NO_ATHLETE =
-  "No athlete record for this account." as const;
+export const bookingInvalidRequestMessage = BOOKING_INVALID_REQUEST_TEXT;
 
 function validateUuid(id: string): BookingResult | null {
-  const t = id?.trim() ?? "";
-  if (!t || !UUID_RE.test(t)) {
+  if (!isValidUuid(id)) {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: bookingInvalidRequestMessage,
+      message: BOOKING_INVALID_REQUEST_TEXT,
     };
   }
   return null;
@@ -71,7 +61,7 @@ export function mapBookingError(
     m.includes("bookings_session_athlete_uniq") ||
     m.includes("duplicate key")
   ) {
-    return { code: "GENERIC_BOOKING_ERROR", message: MSG_ALREADY_BOOKED };
+    return { code: "GENERIC_BOOKING_ERROR", message: bookingScenarioMessages.alreadyBooked };
   }
   if (
     m.includes("booking_membership_limit") ||
@@ -80,7 +70,7 @@ export function mapBookingError(
   ) {
     return {
       code: "BOOKING_FREQUENCY_EXCEEDED",
-      message: athleteBookingUserMessages.BOOKING_FREQUENCY_EXCEEDED,
+      message: bookingErrorMessage("BOOKING_FREQUENCY_EXCEEDED"),
     };
   }
   if (
@@ -89,12 +79,12 @@ export function mapBookingError(
   ) {
     return {
       code: "PAYMENT_NOT_AUTHORIZED",
-      message: athleteBookingUserMessages.PAYMENT_NOT_AUTHORIZED,
+      message: bookingErrorMessage("PAYMENT_NOT_AUTHORIZED"),
     };
   }
   return {
     code: "GENERIC_BOOKING_ERROR",
-    message: athleteBookingUserMessages.GENERIC_BOOKING_ERROR,
+    message: bookingErrorMessage("GENERIC_BOOKING_ERROR"),
   };
 }
 
@@ -162,7 +152,7 @@ export async function createBookingForAthlete(params: {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: MSG_NO_ATHLETE,
+      message: bookingScenarioMessages.noAthleteRecord,
     };
   }
 
@@ -179,7 +169,7 @@ export async function createBookingForAthlete(params: {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: "Session not found.",
+      message: bookingScenarioMessages.sessionNotFound,
     };
   }
 
@@ -188,14 +178,14 @@ export async function createBookingForAthlete(params: {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: "This session is not open for booking.",
+      message: bookingScenarioMessages.sessionNotOpen,
     };
   }
   if (new Date(session.starts_at).getTime() <= new Date(nowIso).getTime()) {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: "This session has already started or ended.",
+      message: bookingScenarioMessages.sessionStartedOrEnded,
     };
   }
 
@@ -207,7 +197,7 @@ export async function createBookingForAthlete(params: {
     return {
       ok: false,
       code: "SESSION_FULL",
-      message: athleteBookingUserMessages.SESSION_FULL,
+      message: bookingErrorMessage("SESSION_FULL"),
     };
   }
 
@@ -243,7 +233,7 @@ export async function cancelBookingForAthlete(params: {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: MSG_NO_ATHLETE,
+      message: bookingScenarioMessages.noAthleteRecord,
     };
   }
 
@@ -260,7 +250,7 @@ export async function cancelBookingForAthlete(params: {
     return {
       ok: false,
       code: "GENERIC_BOOKING_ERROR",
-      message: "No booking to cancel.",
+      message: bookingScenarioMessages.noBookingToCancel,
     };
   }
 

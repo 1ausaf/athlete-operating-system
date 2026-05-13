@@ -17,7 +17,15 @@ import {
   formatPaymentStatusLabel,
   paymentStatusTone,
 } from "@/lib/data/booking-status-labels";
-import { statusToneToBadgeClass } from "@/lib/ui/status";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { listSessionRoster } from "@/lib/data/sessions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isStaff } from "@/lib/rbac";
@@ -56,7 +64,7 @@ export default async function StaffSessionRosterPage({ params }: PageProps) {
   const listHref = "/staff/sessions" as Route;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           <Link href={listHref} className="hover:underline">
@@ -91,50 +99,54 @@ export default async function StaffSessionRosterPage({ params }: PageProps) {
                 TODO: admin/staff overrides — e.g. grant payment exception,
                 force-confirm booking.
               </p>
-              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b text-xs uppercase text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">Athlete</th>
-                  <th className="py-2 pr-3 font-medium">Program day</th>
-                  <th className="py-2 pr-3 font-medium">Last CAP</th>
-                  <th className="py-2 pr-3 font-medium">Injury</th>
-                  <th className="py-2 pr-3 font-medium">Booking / payment</th>
-                  <th className="py-2 font-medium">Account billing</th>
-                </tr>
-              </thead>
-              <tbody>
+              <Table className="min-w-[720px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Athlete</TableHead>
+                    <TableHead>Program day</TableHead>
+                    <TableHead>Last CAP</TableHead>
+                    <TableHead>Injury</TableHead>
+                    <TableHead>Booking / payment</TableHead>
+                    <TableHead>Account billing</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {roster.map((r) => {
                   const bookingTone = bookingStatusTone(r.bookingStatus);
                   const payTone = paymentStatusTone(r.bookingPaymentStatus);
                   return (
-                  <tr key={r.bookingId} className="border-b last:border-0">
-                    <td className="py-3 pr-3 align-top font-medium">{r.fullName}</td>
-                    <td className="py-3 pr-3 align-top text-muted-foreground">
+                  <TableRow key={r.bookingId}>
+                    <TableCell className="align-top font-medium">{r.fullName}</TableCell>
+                    <TableCell className="align-top text-muted-foreground">
                       {r.programDayLabel}
-                    </td>
-                    <td className="py-3 pr-3 align-top text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="align-top text-muted-foreground">
                       {r.lastCapNoteAt
                         ? new Date(r.lastCapNoteAt).toLocaleDateString()
                         : "TODO"}
-                    </td>
-                    <td className="py-3 pr-3 align-top">
-                      {r.injuryFlag ? "Flagged" : "—"}
-                    </td>
-                    <td className="py-3 pr-3 align-top">
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {r.injuryFlag ? (
+                        <StatusBadge tone="warn">Flagged</StatusBadge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="align-top">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span
-                          className={statusToneToBadgeClass(bookingTone)}
+                        <StatusBadge
+                          tone={bookingTone}
                           title={formatBookingStatusLabel(r.bookingStatus)}
                         >
                           {formatBookingStatusLabel(r.bookingStatus)}
-                        </span>
+                        </StatusBadge>
                         <span className="text-muted-foreground">/</span>
-                        <span
-                          className={statusToneToBadgeClass(payTone)}
+                        <StatusBadge
+                          tone={payTone}
                           title={formatPaymentStatusLabel(r.bookingPaymentStatus)}
                         >
                           {formatPaymentStatusLabel(r.bookingPaymentStatus)}
-                        </span>
+                        </StatusBadge>
                       </div>
                       <p className="sr-only">
                         {formatBookingPaymentPair(
@@ -142,15 +154,15 @@ export default async function StaffSessionRosterPage({ params }: PageProps) {
                           r.bookingPaymentStatus,
                         )}
                       </p>
-                    </td>
-                    <td className="py-3 align-top text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="align-top text-muted-foreground">
                       {r.paymentStatusLabel}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+                </TableBody>
+              </Table>
             </>
           )}
         </CardContent>

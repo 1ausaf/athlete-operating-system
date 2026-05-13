@@ -1,4 +1,5 @@
 import { formatPaymentStatusLabel } from "@/lib/data/booking-status-labels";
+import { MEMBERSHIP_PAYMENT_STATUS_COMPLIANCE_FLAGS } from "@/lib/data/membership-payment-rules";
 import { mondayUtcWeekStartIso } from "@/lib/data/cap-notes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/db";
@@ -84,14 +85,6 @@ type BookingJoin = {
   athlete_id: string;
   sessions: { starts_at: string } | { starts_at: string }[] | null;
 };
-
-/** Active memberships not in good payment standing (inverse of booking-confirm gate). */
-const PAYMENT_ISSUE_STATUSES: PaymentStatus[] = [
-  "unpaid",
-  "pending",
-  "failed",
-  "refunded",
-];
 
 function paymentSeverity(s: PaymentStatus): number {
   switch (s) {
@@ -289,7 +282,7 @@ export async function listPaymentComplianceIssues(
     .select("athlete_id, payment_status")
     .eq("status", "active")
     .in("athlete_id", athleteIds)
-    .in("payment_status", PAYMENT_ISSUE_STATUSES);
+    .in("payment_status", [...MEMBERSHIP_PAYMENT_STATUS_COMPLIANCE_FLAGS]);
 
   if (mErr) return [];
 

@@ -12,12 +12,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireUserWithProfile } from "@/lib/auth";
-import type { BillingDisplayStatus } from "@/lib/data/memberships";
-import { getBillingStatusForAthlete } from "@/lib/data/memberships";
+import {
+  getBillingStatusForAthlete,
+  type BillingStatus,
+} from "@/lib/data/billing";
+import { getAthleteProgramSummary } from "@/lib/data/programs";
 import type { StatusTone } from "@/lib/data/booking-status-labels";
 import { isStaff } from "@/lib/rbac";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { statusToneToBadgeClass } from "@/lib/ui/status";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { Database } from "@/types/db";
 
 const UUID_RE =
@@ -44,14 +47,18 @@ function formatFrequency(freq: MembershipFrequency | null): string {
   }
 }
 
-function billingDisplayTone(status: BillingDisplayStatus): StatusTone {
+function billingDisplayTone(status: BillingStatus["status"]): StatusTone {
   switch (status) {
     case "paid":
       return "ok";
     case "grace_period":
       return "warn";
+    case "pending":
+      return "warn";
     case "overdue":
       return "bad";
+    case "unknown":
+      return "neutral";
     default:
       return "neutral";
   }
@@ -108,13 +115,24 @@ export default async function StaffAthleteDetailPage({
   const fullName = prof?.full_name?.trim() || "Unknown athlete";
 
   const billing = await getBillingStatusForAthlete(athlete.profile_id);
-  const tone = billingDisplayTone(billing.displayStatus);
-  const badgeClass = statusToneToBadgeClass(tone);
+  const programSummary = await getAthleteProgramSummary(athlete.profile_id);
+  const tone = billingDisplayTone(billing.status);
 
   const rosterHref = "/staff/athletes" as Route;
+  const programDetailHref =
+    `/staff/athletes/${athlete.id}/program` as Route;
+
+  const lastSessionLabel = programSummary.lastCompletedSessionDate
+    ? new Intl.DateTimeFormat("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date(programSummary.lastCompletedSessionDate))
+    : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Button asChild variant="ghost" size="sm" className="w-fit px-0">
           <Link href={rosterHref}>
@@ -136,6 +154,35 @@ export default async function StaffAthleteDetailPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Program</CardTitle>
+          <CardDescription>
+            Current assignment and next program day (completion-based proxy
+            until native programming).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2 text-sm">
+          <p>
+            <span className="font-medium">Program: </span>
+            {programSummary.programName ?? "—"}
+          </p>
+          <p>
+            <span className="font-medium">Next program day: </span>
+            {programSummary.programId && programSummary.currentDay != null
+              ? `Day ${programSummary.currentDay}`
+              : "—"}
+          </p>
+          <p>
+            <span className="font-medium">Last completed session: </span>
+            {lastSessionLabel ?? "—"}
+          </p>
+          <Button asChild variant="outline" size="sm" className="w-fit">
+            <Link href={programDetailHref}>View program days</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Billing</CardTitle>
           <CardDescription>
             Same membership and payment snapshot the athlete sees on their
@@ -144,14 +191,12 @@ export default async function StaffAthleteDetailPage({
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={badgeClass}>
+            <StatusBadge tone={tone}>
               {billing.bookingRestricted
-                ? "Payment-restricted"
+                ? "Needs attention / restricted"
                 : "Good standing"}
-            </span>
-            <span className="text-muted-foreground">
-              ({billing.displayStatus})
-            </span>
+            </StatusBadge>
+            <span className="text-muted-foreground">({billing.status})</span>
           </div>
           <p>
             <span className="font-medium">Plan: </span>
@@ -162,6 +207,12 @@ export default async function StaffAthleteDetailPage({
             <span className="font-medium">Next billing (estimate): </span>
             {billing.nextInvoiceDate ?? "—"}
           </p>
+          {billing.lastChargeDate ? (
+            <p>
+              <span className="font-medium">Last charge: </span>
+              {billing.lastChargeDate}
+            </p>
+          ) : null}
           {billing.balanceCents > 0 ? (
             <p>
               <span className="font-medium">Balance: </span>$

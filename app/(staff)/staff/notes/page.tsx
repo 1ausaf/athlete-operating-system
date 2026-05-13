@@ -152,7 +152,6 @@ export default async function StaffNotesPage({ searchParams }: PageProps) {
         <CardContent>
           <form action={createCapNoteAction} className="flex max-w-xl flex-col gap-3">
             <input type="hidden" name="athleteProfileId" value={athleteProfileId} />
-            <input type="hidden" name="athleteRowId" value={athleteRow.id} />
             <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Context</span>
               <textarea

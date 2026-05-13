@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 
+/** Spacing uses Tailwind’s default 4px scale (e.g. gap-4 = 16px, p-6 = 24px). */
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -16,6 +17,14 @@ const config: Config = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: [
+          "var(--font-sans)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

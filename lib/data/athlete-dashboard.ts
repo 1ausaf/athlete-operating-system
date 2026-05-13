@@ -1,9 +1,10 @@
 import { getAthleteIdForProfileId } from "@/lib/data/athletes";
 import {
   getBillingStatusForAthlete,
-  type BillingStatus,
-} from "@/lib/data/memberships";
+  type AthleteBillingView,
+} from "@/lib/data/billing";
 import { messagePreviewSnippet } from "@/lib/data/messaging";
+import { getAthleteProgramSummary, type AthleteProgramSummary } from "@/lib/data/programs";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/db";
 
@@ -35,16 +36,11 @@ export type AthleteDashboardUpcomingSession = {
   location: string | null;
 };
 
-export type AthleteDashboardProgramSummary = {
-  programName: string | null;
-  assignedAt: string | null;
-};
-
 export type AthleteDashboardData = {
   unreadMessages: AthleteDashboardUnreadMessages;
   upcomingSessions: AthleteDashboardUpcomingSession[];
-  currentProgramSummary: AthleteDashboardProgramSummary;
-  financialStatus: BillingStatus;
+  currentProgramSummary: AthleteProgramSummary;
+  financialStatus: AthleteBillingView;
   /** TODO: wire to PRs / accolades table when schema exists */
   recentPRsOrAccolades: string[];
 };
@@ -172,49 +168,6 @@ async function loadUpcomingBookedSessions(
   return out.slice(0, limit);
 }
 
-async function loadCurrentProgramSummary(
-  athleteId: string | null,
-): Promise<AthleteDashboardProgramSummary> {
-  if (!athleteId) {
-    return { programName: null, assignedAt: null };
-  }
-
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("athlete_program_assignments")
-    .select(
-      `
-      assigned_at,
-      programs (
-        name
-      )
-    `,
-    )
-    .eq("athlete_id", athleteId)
-    .is("unassigned_at", null)
-    .order("assigned_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    return { programName: null, assignedAt: null };
-  }
-
-  type Row = {
-    assigned_at: string;
-    programs: { name: string } | { name: string }[] | null;
-  };
-
-  const row = data as Row;
-  const p = row.programs;
-  const prog = Array.isArray(p) ? p[0] : p;
-
-  return {
-    programName: prog?.name?.trim() || null,
-    assignedAt: row.assigned_at,
-  };
-}
-
 const EMPTY_PRS: string[] = [];
 
 export async function getAthleteDashboardData(
@@ -226,7 +179,7 @@ export async function getAthleteDashboardData(
     await Promise.all([
       loadUnreadMessagesForDashboard(athleteProfileId),
       loadUpcomingBookedSessions(athleteId),
-      loadCurrentProgramSummary(athleteId),
+      getAthleteProgramSummary(athleteProfileId),
       getBillingStatusForAthlete(athleteProfileId),
     ]);
 

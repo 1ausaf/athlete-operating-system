@@ -7,6 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { requireUserWithProfile } from "@/lib/auth";
 import {
   getActiveMembershipForAthlete,
@@ -45,7 +54,7 @@ export default async function AthleteSessionsPage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Athlete Portal
@@ -87,24 +96,23 @@ export default async function AthleteSessionsPage() {
               assigned and in good standing.
             </p>
           )}
-          <p>
-            <span className="font-medium">4-week booking compliance: </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">4-week booking compliance:</span>
             {compliance.compliant ? (
-              <span className="text-green-700 dark:text-green-400">
-                Met (session on or after{" "}
+              <StatusBadge tone="ok">
+                Met
                 {compliance.furthestBookedSessionStart
-                  ? new Date(
+                  ? ` · furthest ${new Date(
                       compliance.furthestBookedSessionStart,
-                    ).toLocaleString()
-                  : "—"}
-                )
-              </span>
+                    ).toLocaleString()}`
+                  : ""}
+              </StatusBadge>
             ) : (
-              <span className="text-amber-800 dark:text-amber-200">
-                Not met — no confirmed session booked four or more weeks out.
-              </span>
+              <StatusBadge tone="warn">
+                Not met — book a session four or more weeks out
+              </StatusBadge>
             )}
-          </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -122,25 +130,38 @@ export default async function AthleteSessionsPage() {
               No upcoming scheduled sessions.
             </p>
           ) : (
-            <ul className="divide-y rounded-md border">
-              {upcoming.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p className="font-medium">{formatRange(s.starts_at, s.ends_at)}</p>
-                    <p className="text-sm text-muted-foreground">
+            <Table className="min-w-[640px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[40%]">When</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead className="w-[120px]">Roster</TableHead>
+                  <TableHead className="text-right">Book</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {upcoming.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="align-top font-medium tabular-nums">
+                      {formatRange(s.starts_at, s.ends_at)}
+                    </TableCell>
+                    <TableCell className="align-top text-muted-foreground">
                       {s.location?.trim() || "Location TBD"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {s.isBooked ? "You are on the roster" : "Not booked"}
-                    </p>
-                  </div>
-                  <SessionBookForm sessionId={s.id} isBooked={s.isBooked} />
-                </li>
-              ))}
-            </ul>
+                    </TableCell>
+                    <TableCell className="align-top text-muted-foreground">
+                      {s.isBooked ? (
+                        <StatusBadge tone="ok">Booked</StatusBadge>
+                      ) : (
+                        <span className="text-xs">Not booked</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="align-top text-right">
+                      <SessionBookForm sessionId={s.id} isBooked={s.isBooked} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

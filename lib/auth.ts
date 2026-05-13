@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { isMinorFromDateOfBirth } from "@/lib/is-minor";
+import { MEMBERSHIP_PAYMENT_ALLOWED_FOR_BOOKING } from "@/lib/data/membership-payment-rules";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/db";
 import type { AppUser, UserRole } from "@/types/user";
@@ -75,7 +76,7 @@ async function loadHasActiveMembership(
     .select("id, valid_to")
     .eq("athlete_id", athlete.id)
     .eq("status", "active")
-    .in("payment_status", ["authorized", "paid", "waived"])
+    .in("payment_status", [...MEMBERSHIP_PAYMENT_ALLOWED_FOR_BOOKING])
     .lte("valid_from", nowIso);
 
   const rows = rowsRaw as MembershipWindowRow[] | null;
@@ -88,10 +89,11 @@ async function loadHasActiveMembership(
 }
 
 /**
- * Returns the signed-in user mapped to `AppUser`, or null if there is no
- * session or required profile / role data is missing.
+ * Loads the signed-in user mapped to `AppUser`, or null if there is no
+ * session or required profile / role data is missing. Does not redirect —
+ * use in Route Handlers and other JSON APIs.
  */
-export async function getCurrentUserWithProfile(): Promise<AppUser | null> {
+export async function loadAppUser(): Promise<AppUser | null> {
   const supabase = createSupabaseServerClient();
 
   const {
@@ -148,8 +150,16 @@ export async function getCurrentUserWithProfile(): Promise<AppUser | null> {
   return appUser;
 }
 
+/**
+ * Returns the signed-in user mapped to `AppUser`, or null if there is no
+ * session or required profile / role data is missing.
+ */
+export async function getCurrentUserWithProfile(): Promise<AppUser | null> {
+  return loadAppUser();
+}
+
 export async function requireUserWithProfile(): Promise<AppUser> {
-  const user = await getCurrentUserWithProfile();
+  const user = await loadAppUser();
   if (!user) redirect("/auth/sign-in");
   return user;
 }

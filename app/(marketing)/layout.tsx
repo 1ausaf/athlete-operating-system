@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ export default function MarketingLayout({
             </Link>
             <Link href="/pricing" className="hover:text-foreground">
               Pricing
+            </Link>
+            <Link href={"/style-guide" as Route} className="hover:text-foreground">
+              Style guide
             </Link>
           </nav>
 

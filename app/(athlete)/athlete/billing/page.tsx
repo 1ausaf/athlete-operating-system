@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { requireUserWithProfile } from "@/lib/auth";
-import { getBillingStatusForAthlete } from "@/lib/data/memberships";
+import { getBillingStatusForAthlete } from "@/lib/data/billing";
 import type { Database } from "@/types/db";
 
 type MembershipFrequency =
@@ -51,8 +51,7 @@ export default async function AthleteBillingPage() {
     ? `${billing.planName} (${formatFrequency(billing.membershipFrequency)})`
     : "No plan on file";
 
-  const inGoodStanding =
-    billing.displayStatus === "paid" && billing.balanceCents <= 0;
+  const inGoodStanding = !billing.bookingRestricted;
 
   return (
     <div className="flex flex-col gap-6">
@@ -100,6 +99,11 @@ export default async function AthleteBillingPage() {
           <CardContent className="text-xs text-muted-foreground">
             Estimated from your plan period when available. Square or Stripe
             will provide exact invoice dates once connected.
+            {billing.lastChargeDate ? (
+              <p className="mt-2 text-foreground">
+                Last charge: {billing.lastChargeDate}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -113,11 +117,13 @@ export default async function AthleteBillingPage() {
           <CardContent className="text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <CreditCard className="h-3.5 w-3.5" aria-hidden />
-              Payment status:{" "}
+              Billing:{" "}
               <span className="font-medium text-foreground">
-                {billing.displayStatus === "paid" && "Good standing"}
-                {billing.displayStatus === "grace_period" && "Grace / pending"}
-                {billing.displayStatus === "overdue" && "Needs attention"}
+                {billing.status === "paid" && "Good standing"}
+                {billing.status === "grace_period" && "Authorized (grace)"}
+                {billing.status === "pending" && "Payment pending"}
+                {billing.status === "overdue" && "Overdue / restricted"}
+                {billing.status === "unknown" && "Unknown"}
               </span>
             </span>
           </CardContent>

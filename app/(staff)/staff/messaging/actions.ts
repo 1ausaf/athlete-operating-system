@@ -5,10 +5,8 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUserWithProfile } from "@/lib/auth";
 import { isMinorFromDateOfBirth } from "@/lib/is-minor";
-import {
-  createThreadWithParticipants,
-  sendMessage,
-} from "@/lib/data/messaging";
+import { createThreadWithParticipants } from "@/lib/data/messaging";
+import { sendThreadMessageForUser } from "@/lib/server/mutations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isStaff } from "@/lib/rbac";
 
@@ -37,11 +35,7 @@ export async function sendStaffThreadMessage(formData: FormData) {
     redirect(`/staff/messaging?error=${encodeURIComponent("Missing thread.")}`);
   }
 
-  const res = await sendMessage({
-    threadId,
-    senderProfileId: user.id,
-    body,
-  });
+  const res = await sendThreadMessageForUser(user, threadId, body);
 
   if (!res.ok) {
     redirect(`${back}?error=${encodeURIComponent(res.message)}`);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Menu } from "lucide-react";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -10,6 +11,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { AppUser } from "@/types/user";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[parts.length - 1]![0] ?? ""}`.toUpperCase();
+}
 
 export interface AppShellProps {
   /** Sidebar contents (role-specific nav). */
@@ -62,9 +70,22 @@ export function AppShell({
         </span>
 
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden text-sm text-muted-foreground sm:inline">
-            {user.email}
-          </span>
+          <div className="hidden min-w-0 max-w-[200px] flex-col text-right sm:flex md:max-w-xs">
+            <span className="truncate text-sm font-medium leading-tight">
+              {user.fullName}
+            </span>
+            <span
+              className="truncate text-xs text-muted-foreground"
+              title={user.email}
+            >
+              {user.email}
+            </span>
+          </div>
+          <Avatar className="h-9 w-9 shrink-0 border border-border">
+            <AvatarFallback className="bg-muted text-xs font-medium text-muted-foreground">
+              {initials(user.fullName)}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </header>
 

@@ -9,6 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { requireUserWithProfile } from "@/lib/auth";
 import { listUpcomingSessionsForStaff } from "@/lib/data/sessions";
 import { isStaff } from "@/lib/rbac";
@@ -39,7 +47,7 @@ export default async function StaffSessionsPage() {
   const sessions = await listUpcomingSessionsForStaff();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Staff Workspace
@@ -60,50 +68,48 @@ export default async function StaffSessionsPage() {
             Supabase project).
           </CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent>
           {sessions.length === 0 ? (
             <p className="text-sm text-muted-foreground">No upcoming sessions.</p>
           ) : (
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b text-xs uppercase text-muted-foreground">
-                  <th className="py-2 pr-4 font-medium">When</th>
-                  <th className="py-2 pr-4 font-medium">Location</th>
-                  <th className="py-2 pr-4 font-medium">Coach</th>
-                  <th className="py-2 pr-4 font-medium">Confirmed</th>
-                  <th className="py-2 font-medium">Roster</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="min-w-[640px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Coach</TableHead>
+                  <TableHead className="tabular-nums">Confirmed</TableHead>
+                  <TableHead className="text-right">Roster</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {sessions.map((s) => {
                   const rosterHref = `/staff/sessions/${s.id}` as Route;
                   return (
-                    <tr key={s.id} className="border-b last:border-0">
-                      <td className="py-3 pr-4 align-top">
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium tabular-nums">
                         {formatRange(s.starts_at, s.ends_at)}
-                      </td>
-                      <td className="py-3 pr-4 align-top text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
                         {s.location?.trim() || "—"}
-                      </td>
-                      <td className="py-3 pr-4 align-top">
-                        {s.primaryCoachName ?? "—"}
-                      </td>
-                      <td className="py-3 pr-4 align-top tabular-nums">
+                      </TableCell>
+                      <TableCell>{s.primaryCoachName ?? "—"}</TableCell>
+                      <TableCell className="tabular-nums">
                         {s.confirmedCount} / {s.capacity}
-                      </td>
-                      <td className="py-3 align-top">
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Link
                           href={rosterHref}
-                          className="text-primary underline-offset-4 hover:underline"
+                          className="text-primary text-sm font-medium underline-offset-4 hover:underline"
                         >
                           View roster
                         </Link>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
