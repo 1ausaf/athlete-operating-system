@@ -55,7 +55,8 @@ export async function fetchProfileNamesByIds(
   return map;
 }
 
-function previewSnippet(body: string, maxLen = 120): string {
+/** Trims and ellipsizes message bodies for inbox / dashboard previews. */
+export function messagePreviewSnippet(body: string, maxLen = 120): string {
   const t = body.trim().replace(/\s+/g, " ");
   if (t.length <= maxLen) return t;
   return `${t.slice(0, maxLen - 1)}…`;
@@ -190,7 +191,7 @@ export async function listThreadsForUser(
       createdAt: t.created_at,
       title,
       lastMessageAt: last?.created_at ?? null,
-      lastMessagePreview: last ? previewSnippet(last.body) : null,
+      lastMessagePreview: last ? messagePreviewSnippet(last.body) : null,
     };
   });
 
