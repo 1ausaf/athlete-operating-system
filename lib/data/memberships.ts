@@ -1,4 +1,5 @@
 import { getAthleteIdForProfileId } from "@/lib/data/athletes";
+import { fourWeekThreshold } from "@/lib/data/compliance";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/db";
 
@@ -91,9 +92,7 @@ export async function getBookingComplianceStatus(
     return { compliant: false, furthestBookedSessionStart: null };
   }
 
-  const threshold = new Date(referenceDate);
-  threshold.setDate(threshold.getDate() + 28);
-  const thresholdMs = threshold.getTime();
+  const thresholdMs = fourWeekThreshold(referenceDate).getTime();
 
   const supabase = createSupabaseServerClient();
 

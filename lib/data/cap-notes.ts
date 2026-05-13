@@ -47,7 +47,8 @@ function parseCapBody(body: string): CapNoteCapFields | null {
   }
 }
 
-function mondayWeekStartIso(d: Date): string {
+/** Monday (UTC) as `YYYY-MM-DD`, aligned with `cap_notes.note_week_start`. */
+export function mondayUtcWeekStartIso(d: Date): string {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dow = x.getUTCDay();
   const mondayOffset = dow === 0 ? -6 : 1 - dow;
@@ -98,7 +99,7 @@ export async function createCapNoteForAthlete(
     plan: params.plan,
   });
   const noteWeekStart =
-    params.noteWeekStart ?? mondayWeekStartIso(new Date());
+    params.noteWeekStart ?? mondayUtcWeekStartIso(new Date());
 
   const row: Database["public"]["Tables"]["cap_notes"]["Insert"] = {
     athlete_id: params.athleteId,

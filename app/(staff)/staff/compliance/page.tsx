@@ -1,5 +1,6 @@
-import { CalendarRange, CreditCard, NotebookPen } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
 
 import {
   Card,
@@ -8,52 +9,56 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { requireUserWithProfile } from "@/lib/auth";
+import {
+  fetchStaffAthleteComplianceRoster,
+  listBookingComplianceIssues,
+  listNoteComplianceIssues,
+  listPaymentComplianceIssues,
+} from "@/lib/data/compliance";
+import {
+  formatPaymentStatusLabel,
+  paymentStatusTone,
+} from "@/lib/data/booking-status-labels";
+import { isStaff } from "@/lib/rbac";
+import {
+  complianceToneToBadgeClass,
+  statusToneToBadgeClass,
+} from "@/lib/ui/status";
 
-interface ComplianceCard {
-  icon: LucideIcon;
-  title: string;
-  metric: string;
-  description: string;
-  bullets: string[];
+function formatDate(iso: string | null): string {
+  if (!iso) return "none";
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(iso));
 }
 
-const dashboards: ComplianceCard[] = [
-  {
-    icon: CalendarRange,
-    title: "Booking",
-    metric: "94%",
-    description: "Sessions booked within membership cadence.",
-    bullets: [
-      "3 athletes over their weekly frequency cap",
-      "2 no-shows in the last 7 days",
-      "1 athlete with zero bookings in 14 days",
-    ],
-  },
-  {
-    icon: NotebookPen,
-    title: "Notes",
-    metric: "86%",
-    description: "CAP notes published within the 24-hour SLA.",
-    bullets: [
-      "4 sessions missing a CAP note (overdue)",
-      "Average time-to-publish: 9 hours",
-      "0 unpublished drafts older than 48 hours",
-    ],
-  },
-  {
-    icon: CreditCard,
-    title: "Payment",
-    metric: "98%",
-    description: "Active memberships with a current payment method.",
-    bullets: [
-      "2 past-due balances",
-      "3 memberships lapsing in the next 7 days",
-      "1 booking auto-paused for failed charge",
-    ],
-  },
-];
+function notesForAthleteHref(profileId: string): Route {
+  return `/staff/notes?athleteId=${encodeURIComponent(profileId)}` as Route;
+}
 
-export default function StaffCompliancePage() {
+export default async function StaffCompliancePage() {
+  const user = await requireUserWithProfile();
+  if (!isStaff(user)) {
+    redirect("/athlete/dashboard");
+  }
+
+  const roster = await fetchStaffAthleteComplianceRoster();
+  const [bookingIssues, noteIssues, paymentIssues] = await Promise.all([
+    listBookingComplianceIssues(roster),
+    listNoteComplianceIssues(roster),
+    listPaymentComplianceIssues(roster),
+  ]);
+
+  const rosterHref = "/staff/athletes" as Route;
+  const sessionsHref = "/staff/sessions" as Route;
+  const billingHref = "/staff/billing" as Route;
+
+  const gapBadgeClass = complianceToneToBadgeClass("bad");
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -64,32 +69,227 @@ export default function StaffCompliancePage() {
           Compliance
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Three dashboards - booking, notes, payment - surfacing gaps before
-          they become problems. Each card drills into its full view.
+          Booking (4+ week horizon), weekly CAP notes, and membership or balance
+          payment signals for athletes you can access under RLS.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {dashboards.map(({ icon: Icon, title, metric, description, bullets }) => (
-          <Card key={title}>
-            <CardHeader>
-              <Icon className="h-5 w-5 text-muted-foreground" aria-hidden />
-              <CardTitle className="text-base">{title}</CardTitle>
-              <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <span className="text-3xl font-semibold tracking-tight">
-                {metric}
-              </span>
-              <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-                {bullets.map((b) => (
-                  <li key={b}>{b}</li>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Booking compliance</CardTitle>
+          <CardDescription>
+            Athletes without a confirmed session on or after four weeks from
+            today.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {bookingIssues.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No booking compliance gaps in the visible roster.
+            </p>
+          ) : (
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Athlete</th>
+                  <th className="py-2 pr-3 font-medium">Next session</th>
+                  <th className="py-2 pr-3 font-medium">Furthest booked</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookingIssues.map((row) => (
+                  <tr
+                    key={row.athleteId}
+                    className="border-b border-destructive/15 bg-destructive/[0.06]"
+                  >
+                    <td className="py-2 pr-3 font-medium">
+                      {row.athleteFullName}
+                    </td>
+                    <td className="py-2 pr-3 text-muted-foreground">
+                      {formatDate(row.nextBookedSessionStartsAt)}
+                    </td>
+                    <td className="py-2 pr-3 text-muted-foreground">
+                      {formatDate(row.furthestBookedSessionStartsAt)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span className={gapBadgeClass}>Non-compliant</span>
+                    </td>
+                    <td className="py-2">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        <Link
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={notesForAthleteHref(row.athleteProfileId)}
+                        >
+                          Athlete / CAP
+                        </Link>
+                        <Link
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={rosterHref}
+                        >
+                          Roster
+                        </Link>
+                        <Link
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={sessionsHref}
+                        >
+                          Sessions
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </ul>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Note compliance</CardTitle>
+          <CardDescription>
+            Athletes without a CAP note for the current UTC week (Monday
+            anchor).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {noteIssues.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No note gaps for the current week on the visible roster.
+            </p>
+          ) : (
+            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Athlete</th>
+                  <th className="py-2 pr-3 font-medium">Last CAP note</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {noteIssues.map((row) => (
+                  <tr
+                    key={row.athleteId}
+                    className="border-b border-destructive/15 bg-destructive/[0.06]"
+                  >
+                    <td className="py-2 pr-3 font-medium">
+                      {row.athleteFullName}
+                    </td>
+                    <td className="py-2 pr-3 text-muted-foreground">
+                      {formatDate(row.lastCapNoteCreatedAt)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span className={gapBadgeClass}>Non-compliant</span>
+                    </td>
+                    <td className="py-2">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        <Link
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={notesForAthleteHref(row.athleteProfileId)}
+                        >
+                          CAP notes
+                        </Link>
+                        <Link
+                          className="text-primary underline-offset-4 hover:underline"
+                          href={rosterHref}
+                        >
+                          Roster
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Payment compliance</CardTitle>
+          <CardDescription>
+            Active memberships not in paid / authorized / waived standing, or a
+            positive billing balance.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {paymentIssues.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No payment issues on the visible roster.
+            </p>
+          ) : (
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Athlete</th>
+                  <th className="py-2 pr-3 font-medium">Summary</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentIssues.map((row) => {
+                  const tone = row.membershipPaymentStatus
+                    ? paymentStatusTone(row.membershipPaymentStatus)
+                    : row.balanceCents != null && row.balanceCents > 0
+                      ? "bad"
+                      : "neutral";
+                  const badgeLabel =
+                    row.membershipPaymentStatus != null
+                      ? formatPaymentStatusLabel(row.membershipPaymentStatus)
+                      : row.balanceCents != null && row.balanceCents > 0
+                        ? "Balance due"
+                        : "Issue";
+                  return (
+                    <tr
+                      key={row.athleteId}
+                      className="border-b border-destructive/15 bg-destructive/[0.06]"
+                    >
+                      <td className="py-2 pr-3 font-medium">
+                        {row.athleteFullName}
+                      </td>
+                      <td className="py-2 pr-3 text-muted-foreground">
+                        {row.displayLabel}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className={statusToneToBadgeClass(tone)}>
+                          {badgeLabel}
+                        </span>
+                      </td>
+                      <td className="py-2">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                          <Link
+                            className="text-primary underline-offset-4 hover:underline"
+                            href={notesForAthleteHref(row.athleteProfileId)}
+                          >
+                            Athlete / CAP
+                          </Link>
+                          <Link
+                            className="text-primary underline-offset-4 hover:underline"
+                            href={billingHref}
+                          >
+                            Billing
+                          </Link>
+                          <Link
+                            className="text-primary underline-offset-4 hover:underline"
+                            href={sessionsHref}
+                          >
+                            Sessions
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -7,16 +7,22 @@ import type { Database } from "@/types/db";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Failure codes for athlete booking; DB/RLS errors collapse into these four + message. */
-export type BookingErrorCode =
-  | "BOOKING_FREQUENCY_EXCEEDED"
-  | "PAYMENT_NOT_AUTHORIZED"
-  | "SESSION_FULL"
-  | "GENERIC_BOOKING_ERROR";
-
 export type BookingResult =
   | { ok: true }
-  | { ok: false; code: BookingErrorCode; message: string };
+  | {
+      ok: false;
+      code:
+        | "BOOKING_FREQUENCY_EXCEEDED"
+        | "PAYMENT_NOT_AUTHORIZED"
+        | "SESSION_FULL"
+        | "GENERIC_BOOKING_ERROR";
+      message: string;
+    };
+
+export type BookingErrorCode = Extract<
+  BookingResult,
+  { ok: false }
+>["code"];
 
 export const athleteBookingUserMessages: Record<BookingErrorCode, string> = {
   BOOKING_FREQUENCY_EXCEEDED:

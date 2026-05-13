@@ -64,7 +64,8 @@ export function bookingStatusTone(status: BookingStatus): StatusTone {
 export function paymentStatusTone(payment: PaymentStatus): StatusTone {
   if (payment === "paid" || payment === "waived") return "ok";
   if (payment === "authorized") return "warn";
-  if (payment === "pending" || payment === "unpaid") return "warn";
+  if (payment === "pending") return "warn";
+  if (payment === "unpaid") return "bad";
   if (payment === "failed") return "bad";
   if (payment === "refunded") return "neutral";
   return "neutral";

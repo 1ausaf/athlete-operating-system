@@ -509,6 +509,13 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      create_message_thread_with_participants: {
+        Args: {
+          p_title: string | null;
+          p_participant_profile_ids: string[];
+        };
+        Returns: string;
+      };
       booking_frequency_ok_for_confirm: {
         Args: {
           p_athlete_id: string;

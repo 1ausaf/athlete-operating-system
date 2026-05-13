@@ -1,7 +1,9 @@
+import Link from "next/link";
+import type { Route } from "next";
+import { redirect } from "next/navigation";
 import { ShieldCheck, Users } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,25 +12,40 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { requireUserWithProfile } from "@/lib/auth";
+import { listThreadsForUser } from "@/lib/data/messaging";
 
-const threads = [
-  {
-    initials: "DC",
-    title: "Demo Coach + Demo Athlete",
-    preview: "Great work on the tempo deadlifts today. Let's adjust...",
-    timestamp: "2h",
-    participantCount: 2,
-  },
-  {
-    initials: "FG",
-    title: "Demo Coach + Demo Athlete + Guardian",
-    preview: "Scheduling next week's check-in - copying your guardian.",
-    timestamp: "1d",
-    participantCount: 3,
-  },
-];
+function initials(title: string): string {
+  const parts = title.split(/[,\s]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase() || "?";
+  }
+  return (parts[0]?.slice(0, 2) ?? "M").toUpperCase();
+}
 
-export default function AthleteMessagesPage() {
+function formatWhen(iso: string | null): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+export default async function AthleteMessagesPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string };
+}) {
+  const user = await requireUserWithProfile();
+  if (user.role !== "athlete") {
+    redirect("/staff/athletes");
+  }
+
+  const threads = await listThreadsForUser(user.id);
+  const inboxError = searchParams?.error;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -39,10 +56,16 @@ export default function AthleteMessagesPage() {
           Messages
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Safe-Sport compliant messaging. All conversations between an adult
-          staff member and a minor athlete include a second adult by default.
+          Safe-Sport compliant messaging. Rule-of-Two is enforced when thread
+          membership is set.
         </p>
       </div>
+
+      {inboxError ? (
+        <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {inboxError}
+        </p>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -51,9 +74,8 @@ export default function AthleteMessagesPage() {
             Rule of Two
           </CardTitle>
           <CardDescription>
-            A 1:1 direct message between an adult staff member and a minor
-            athlete is never allowed. Composing one will prompt you to add a
-            second adult (another coach or a guardian) to the thread.
+            Threads with minors require at least two adults. One-to-one
+            adult–minor threads are not allowed.
           </CardDescription>
         </CardHeader>
         <CardContent />
@@ -62,42 +84,46 @@ export default function AthleteMessagesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Inbox</CardTitle>
-          <CardDescription>
-            Recent threads. Threads with more than two participants are marked
-            with a group icon.
-          </CardDescription>
+          <CardDescription>Your conversations.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col">
-          {threads.map((thread, index) => (
-            <div key={thread.title}>
-              {index > 0 ? <Separator className="my-3" /> : null}
-              <div className="flex items-start gap-3">
-                <Avatar>
-                  <AvatarFallback>{thread.initials}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{thread.title}</span>
-                    {thread.participantCount > 2 ? (
-                      <Users
-                        className="h-3.5 w-3.5 text-muted-foreground"
-                        aria-hidden
-                      />
-                    ) : null}
+          {threads.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No messages yet. When staff add you to a thread, it will appear
+              here.
+            </p>
+          ) : (
+            threads.map((thread, index) => (
+              <div key={thread.id}>
+                {index > 0 ? <Separator className="my-3" /> : null}
+                <Link
+                  href={`/athlete/messages/${thread.id}` as Route}
+                  className="flex items-start gap-3 rounded-md transition-colors hover:bg-muted/50"
+                >
+                  <Avatar>
+                    <AvatarFallback>{initials(thread.title)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{thread.title}</span>
+                      {thread.title.includes(",") ? (
+                        <Users
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </div>
+                    <p className="line-clamp-1 text-sm text-muted-foreground">
+                      {thread.lastMessagePreview ?? "No messages yet"}
+                    </p>
                   </div>
-                  <p className="line-clamp-1 text-sm text-muted-foreground">
-                    {thread.preview}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {thread.timestamp}
-                </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatWhen(thread.lastMessageAt ?? thread.createdAt)}
+                  </span>
+                </Link>
               </div>
-            </div>
-          ))}
-          <div className="mt-4 flex justify-end">
-            <Button disabled>Compose</Button>
-          </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

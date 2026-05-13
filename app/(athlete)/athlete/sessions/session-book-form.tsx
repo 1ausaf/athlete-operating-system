@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
 import {
+  bookSession,
   initialBookingFormState,
   type BookingFormState,
-  submitSessionBookingAction,
 } from "./actions";
 
 function SubmitButton({ disabled }: { disabled: boolean }) {
@@ -28,22 +26,7 @@ export function SessionBookForm({
   sessionId: string;
   isBooked: boolean;
 }) {
-  const router = useRouter();
-  const [state, formAction] = useFormState(
-    submitSessionBookingAction,
-    initialBookingFormState,
-  );
-  const sawSuccess = useRef(false);
-
-  useEffect(() => {
-    if (state.kind === "success" && !sawSuccess.current) {
-      sawSuccess.current = true;
-      router.refresh();
-    }
-    if (state.kind !== "success") {
-      sawSuccess.current = false;
-    }
-  }, [state.kind, router]);
+  const [state, formAction] = useFormState(bookSession, initialBookingFormState);
 
   if (isBooked) {
     return (

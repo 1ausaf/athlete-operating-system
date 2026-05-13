@@ -12,11 +12,12 @@ import {
 import { requireUserWithProfile } from "@/lib/auth";
 import {
   bookingStatusTone,
+  formatBookingPaymentPair,
   formatBookingStatusLabel,
   formatPaymentStatusLabel,
   paymentStatusTone,
-  toneToClass,
 } from "@/lib/data/booking-status-labels";
+import { statusToneToBadgeClass } from "@/lib/ui/status";
 import { listSessionRoster } from "@/lib/data/sessions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isStaff } from "@/lib/rbac";
@@ -86,6 +87,7 @@ export default async function StaffSessionRosterPage({ params }: PageProps) {
           ) : (
             <>
               <p className="mb-3 text-xs text-muted-foreground">
+                {/* TODO: use roster row bookingId for mutations — grant payment exception, force-confirm booking. */}
                 TODO: admin/staff overrides — e.g. grant payment exception,
                 force-confirm booking.
               </p>
@@ -105,7 +107,7 @@ export default async function StaffSessionRosterPage({ params }: PageProps) {
                   const bookingTone = bookingStatusTone(r.bookingStatus);
                   const payTone = paymentStatusTone(r.bookingPaymentStatus);
                   return (
-                  <tr key={`${r.athleteId}-${r.bookingStatus}`} className="border-b last:border-0">
+                  <tr key={r.bookingId} className="border-b last:border-0">
                     <td className="py-3 pr-3 align-top font-medium">{r.fullName}</td>
                     <td className="py-3 pr-3 align-top text-muted-foreground">
                       {r.programDayLabel}
@@ -119,13 +121,27 @@ export default async function StaffSessionRosterPage({ params }: PageProps) {
                       {r.injuryFlag ? "Flagged" : "—"}
                     </td>
                     <td className="py-3 pr-3 align-top">
-                      <span className={`font-medium ${toneToClass(bookingTone)}`}>
-                        {formatBookingStatusLabel(r.bookingStatus)}
-                      </span>
-                      <span className="text-muted-foreground"> / </span>
-                      <span className={`font-medium ${toneToClass(payTone)}`}>
-                        {formatPaymentStatusLabel(r.bookingPaymentStatus)}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={statusToneToBadgeClass(bookingTone)}
+                          title={formatBookingStatusLabel(r.bookingStatus)}
+                        >
+                          {formatBookingStatusLabel(r.bookingStatus)}
+                        </span>
+                        <span className="text-muted-foreground">/</span>
+                        <span
+                          className={statusToneToBadgeClass(payTone)}
+                          title={formatPaymentStatusLabel(r.bookingPaymentStatus)}
+                        >
+                          {formatPaymentStatusLabel(r.bookingPaymentStatus)}
+                        </span>
+                      </div>
+                      <p className="sr-only">
+                        {formatBookingPaymentPair(
+                          r.bookingStatus,
+                          r.bookingPaymentStatus,
+                        )}
+                      </p>
                     </td>
                     <td className="py-3 align-top text-muted-foreground">
                       {r.paymentStatusLabel}

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireUserWithProfile } from "@/lib/auth";
 import {
@@ -11,14 +11,13 @@ import {
 
 export type BookingFormState =
   | { kind: "idle" }
-  | { kind: "success" }
   | { kind: "error"; code: BookingErrorCode; message: string };
 
 const initialBookingFormState: BookingFormState = { kind: "idle" };
 
 export { initialBookingFormState };
 
-export async function submitSessionBookingAction(
+export async function bookSession(
   _prev: BookingFormState,
   formData: FormData,
 ): Promise<BookingFormState> {
@@ -53,6 +52,5 @@ export async function submitSessionBookingAction(
     };
   }
 
-  revalidatePath("/athlete/sessions");
-  return { kind: "success" };
+  redirect("/athlete/sessions");
 }

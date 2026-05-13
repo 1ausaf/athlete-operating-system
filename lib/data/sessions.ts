@@ -46,6 +46,7 @@ export async function listUpcomingSessionsForAthlete(
 }
 
 export interface SessionRosterAthleteRow {
+  bookingId: string;
   athleteId: string;
   profileId: string;
   fullName: string;
@@ -64,13 +65,14 @@ export async function listSessionRoster(
 
   const { data: bookingRows, error: bErr } = await supabase
     .from("bookings")
-    .select("athlete_id, status, payment_status")
+    .select("id, athlete_id, status, payment_status")
     .eq("session_id", sessionId)
     .in("status", ["pending", "confirmed", "waitlisted"]);
 
   if (bErr || !bookingRows?.length) return [];
 
   type BookingPick = {
+    id: string;
     athlete_id: string;
     status: Database["public"]["Enums"]["booking_status"];
     payment_status: Database["public"]["Enums"]["payment_status"];
@@ -118,6 +120,7 @@ export async function listSessionRoster(
       : p?.full_name;
 
     out.push({
+      bookingId: b.id,
       athleteId: a.id,
       profileId: a.profile_id,
       fullName: fullName?.trim() || "Unknown athlete",
